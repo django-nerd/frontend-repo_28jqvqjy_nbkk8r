@@ -32,8 +32,19 @@ function JobForm({ onCreated }) {
 
   const submit = async (e) => {
     e.preventDefault()
-    setLoading(true)
     setError('')
+
+    // Enforce: "First give the API KEY" for providers that require it
+    if (provider === 'hailuo' && !hailuoKey) {
+      setError('Please enter your HAILUO_API_KEY before generating.')
+      return
+    }
+    if (provider === 'sora2' && !soraKey) {
+      setError('Please enter your SORA_API_KEY before generating.')
+      return
+    }
+
+    setLoading(true)
     try {
       const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
       const image_urls = imageUrlsText
@@ -124,8 +135,8 @@ function JobForm({ onCreated }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input type="password" value={hailuoKey} onChange={(e)=>setHailuoKey(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50" placeholder="Optional HAILUO_API_KEY (per request)" />
-          <input type="password" value={soraKey} onChange={(e)=>setSoraKey(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50" placeholder="Optional SORA_API_KEY (per request)" />
+          <input type="password" value={hailuoKey} onChange={(e)=>setHailuoKey(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50" placeholder="HAILUO_API_KEY (required for Hailuo)" />
+          <input type="password" value={soraKey} onChange={(e)=>setSoraKey(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50" placeholder="SORA_API_KEY (required for Sora)" />
         </div>
 
         {error && <div className="text-red-300 text-sm">{error}</div>}
