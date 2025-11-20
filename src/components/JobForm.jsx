@@ -13,12 +13,21 @@ function JobForm({ onCreated }) {
   const [provider, setProvider] = useState(providers[0].key)
   const [aspect, setAspect] = useState('16:9')
   const [duration, setDuration] = useState(5)
+
+  // Multi-frame/multi-image
+  const [mode, setMode] = useState('text_to_video')
+  const [imageUrlsText, setImageUrlsText] = useState('')
+  const [fps, setFps] = useState(24)
+
+  // Optional API keys per request
+  const [hailuoKey, setHailuoKey] = useState('')
+  const [soraKey, setSoraKey] = useState('')
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    // Optionally fetch providers from backend
-    // but we already know the list
+    // noop
   }, [])
 
   const submit = async (e) => {
@@ -27,12 +36,40 @@ function JobForm({ onCreated }) {
     setError('')
     try {
       const baseUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000'
+      const image_urls = imageUrlsText
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean)
+
+      const payload = {
+        provider,
+        mode,
+        prompt,
+        aspect_ratio: aspect,
+        duration: Number(duration),
+      }
+
+      if (mode !== 'text_to_video') {
+        payload.image_urls = image_urls
+      }
+      if (mode === 'image_sequence_to_video') {
+        payload.fps = Number(fps)
+      }
+
+      const api_keys = {}
+      if (hailuoKey) api_keys.hailuo = hailuoKey
+      if (soraKey) api_keys.sora2 = soraKey
+      if (Object.keys(api_keys).length) payload.api_keys = api_keys
+
       const res = await fetch(`${baseUrl}/api/jobs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, prompt, aspect_ratio: aspect, duration: Number(duration) }),
+        body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error(`Failed: ${res.status}`)
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || `Failed: ${res.status}`)
+      }
       const data = await res.json()
       onCreated && onCreated(data)
     } catch (err) {
@@ -52,6 +89,7 @@ function JobForm({ onCreated }) {
           onChange={(e) => setPrompt(e.target.value)}
           placeholder="Describe the scene you want to generate"
         />
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <select value={provider} onChange={(e) => setProvider(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50">
             {providers.map(p => <option key={p.key} value={p.key}>{p.name}</option>)}
@@ -64,6 +102,32 @@ function JobForm({ onCreated }) {
             {loading ? 'Creating…' : 'Generate'}
           </button>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <select value={mode} onChange={(e)=>setMode(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50">
+            <option value="text_to_video">Text → Video</option>
+            <option value="image_sequence_to_video">Image sequence → Video</option>
+            <option value="multi_image_guided">Multi‑image guided Text → Video</option>
+          </select>
+          {mode !== 'text_to_video' && (
+            <textarea
+              className="md:col-span-2 w-full rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50 placeholder:text-blue-200/40"
+              rows={3}
+              value={imageUrlsText}
+              onChange={(e)=>setImageUrlsText(e.target.value)}
+              placeholder="Paste image URLs, one per line in order"
+            />
+          )}
+          {mode === 'image_sequence_to_video' && (
+            <input type="number" min={1} max={60} value={fps} onChange={(e)=>setFps(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50" placeholder="FPS" />
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input type="password" value={hailuoKey} onChange={(e)=>setHailuoKey(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50" placeholder="Optional HAILUO_API_KEY (per request)" />
+          <input type="password" value={soraKey} onChange={(e)=>setSoraKey(e.target.value)} className="rounded-xl bg-slate-900/60 border border-white/10 p-3 text-blue-50" placeholder="Optional SORA_API_KEY (per request)" />
+        </div>
+
         {error && <div className="text-red-300 text-sm">{error}</div>}
       </div>
     </form>
